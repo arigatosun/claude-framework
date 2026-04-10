@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Bash(npm run *)",
+      "Bash(npx *)",
+      "Bash(pnpm *)",
+      "Bash(git status)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(git branch *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(ls *)",
+      "Read",
+      "Write",
+      "Edit"
+    ],
+    "deny": [
+      "Bash(rm -rf *)",
+      "Bash(rm -fr *)",
+      "Bash(rm -r -f *)",
+      "Bash(rm -f -r *)",
+      "Bash(sudo rm *)",
+      "Bash(curl * | sh *)",
+      "Bash(curl * | bash *)",
+      "Bash(wget * | sh *)",
+      "Bash(wget * | bash *)",
+      "Read(.env)",
+      "Read(.env.*)",
+      "Read(.env.local)"
+    ],
+    "ask": [
+      "Bash(git push *)",
+      "Bash(git reset *)",
+      "Bash(git checkout -- *)",
+      "Bash(git clean *)",
+      "Bash(rm *)",
+      "Bash(docker *)",
+      "Bash(gh pr create *)",
+      "Bash(gh issue create *)"
+    ]
+  },
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Bash:git commit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "echo '[TDD Check] commitが検出されました。docs/test-spec.md のテスト設計は最新ですか？変更したファイルに対応するテストケースの追加・更新を確認してください。'",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}
