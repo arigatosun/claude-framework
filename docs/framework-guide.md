@@ -4,7 +4,16 @@
 
 Claude Code / Codex CLI を使った開発で、チーム全員が同じ品質・同じワークフローで開発できるようにするための共通設定テンプレート。
 
-**核心思想**: テスト駆動開発（TDD） + 設計と実装の分離
+**核心思想**: テスト駆動開発（TDD） + 設計と実装の分離 + AIの不正を構造的に防ぐガードレール
+
+このフレームワークは4層の守りでTDDを強制する:
+
+1. **恒久ルール** — CLAUDE.md / rules/ に契約として明記
+2. **スキル** — RED/GREEN/REFACTORの進行を workflow として誘導
+3. **hooks / settings** — sed -i 等の「レビュー回避手段」を deterministic にブロック
+4. **外部検証** — 独立した reviewer エージェント + mutation testing（推奨）
+
+参考: [nizos/tdd-guard](https://github.com/nizos/tdd-guard), [obra/superpowers](https://github.com/obra/superpowers), ImpossibleBench論文（AIがテストを攻略する現象の研究）
 
 ---
 
@@ -167,17 +176,32 @@ Claude Codeが提案してくる:
 
 承認すると test-spec.md に追記され、テスト設計だけが先にcommitされる。
 
-### STEP 3: 実装
+### STEP 3: 実装（RED → GREEN → REFACTOR 厳格分離）
 
-テスト仕様書の「確認ポイント」を通すことをゴールにコードを書く。
+テストケース1つごとに以下のループを回す:
 
-- Phase単位（4-5ステップ）で分割して進行
-- 各Phase完了後にテスト実行
+```
+RED (テストだけ追加) → GREEN (実装だけ追加) → REFACTOR (整理のみ)
+```
+
+- **RED**: テストファイルだけを編集。1つの failing test を追加し、実際に失敗することを実行ログで確認
+- **GREEN**: 実装ファイルだけを編集。直前の failing test を通すための最小変更のみ
+- **REFACTOR**: 振る舞いを変えない整理のみ（任意）
+
+**重要**: 複数の failing test を一度にRED化してまとめてGREENにするのは禁止。
+フェーズごとに編集可能なファイルが制限されているのは、AIがテストと実装を同時に触って「テスト側を弱めて通す」不正を防ぐため。
 
 ### STEP 4: 検証・commit
 
-- 全テストPASS → commit
-- `docs/progress.md` が自動更新される
+作業完了前に以下を必ず実行する:
+
+1. **focused test** — 今回追加・修正したテスト
+2. **affected suite** — 影響範囲のテストスイート
+3. **lint** — コードスタイル違反チェック
+4. **typecheck** — 型エラーチェック
+5. **TDD Ledger 出力** — 変更ファイル・テスト結果・最小変更の根拠・想定される不正パターンを報告
+
+全てPASSしたら commit。`docs/progress.md` が自動更新される。
 
 ### STEP 5: 修正・拡張時
 
@@ -199,6 +223,7 @@ project-root/
 │   ├── settings.json                  # パーミッション設定（安全柵）
 │   ├── rules/
 │   │   ├── tdd-workflow.md            # TDDの手順ルール
+│   │   ├── tdd-integrity-contract.md  # TDD不正防止の絶対契約（RED/GREEN/REFACTOR分離）
 │   │   ├── design-phase.md            # 設計フェーズの質問ルール
 │   │   ├── session-continuity.md      # セッション跨ぎの継続ルール
 │   │   ├── coding-standards.md        # コーディング規約
@@ -206,6 +231,7 @@ project-root/
 │   │   └── mistakes.md               # やらかしログ
 │   ├── skills/
 │   │   ├── onboard-project/SKILL.md   # 既存プロジェクト自動導入スキル
+│   │   ├── tdd-integrity/SKILL.md     # TDD厳格実行スキル（RED/GREEN/REFACTOR）
 │   │   ├── test-design/SKILL.md       # テスト設計スキル
 │   │   └── phase-commit/SKILL.md      # Phase完了時のcommitスキル
 │   └── agents/
@@ -242,6 +268,7 @@ project-root/
 | スキル | トリガー例 | 内容 |
 |--------|----------|------|
 | **onboard-project** | 「フレームワーク導入して」「セットアップ」 | 既存プロジェクトへの自動導入（技術スタック検出→アーキテクチャ可視化→競合解消→配置） |
+| **tdd-integrity** | 「実装して」「機能追加」「バグ修正」 | RED→GREEN→REFACTORの厳格分離でTDDを強制実行。TDD Ledger出力必須 |
 | **test-design** | 「テスト書いて」「テストケース追加」 | docs/test-spec.md にテストケースを追加・更新 |
 | **phase-commit** | 「Phase完了」「コミットして」 | テスト実行→progress.md更新→test-spec.md更新→commit |
 
@@ -306,11 +333,103 @@ npm run, git status, git diff 等の安全なコマンド → 確認なしで実
 - `rm -rf` — ファイル全削除
 - `curl | sh` / `wget | bash` — 外部スクリプト実行
 - `.env` ファイルの読み取り — シークレット漏洩防止
+- **`sed -i` / `perl -pi` / `awk -i inplace`** — レビュー回避のためのin-place書き換えを禁止
+- **`python -c` / `node -e`** — スクリプト経由のレビュー回避書き換えを禁止
+- **`* > *.ts` / `* > *.py` 等** — Bash リダイレクトによるソースファイル上書きを禁止
+
+→ ファイル編集は必ず Edit / Write ツールで行う（差分がユーザーに見える形で）
 
 ### 都度確認（askリスト）
 - `git push` — プッシュ前にテスト通過を確認
 - `rm` — ファイル削除は慎重に
 - `gh pr create` — PR作成前に内容確認
+- **`--updateSnapshot` / `-u` フラグ** — snapshot一括更新は意図確認が必要
+
+---
+
+## TDD Integrity Contract（AI不正防止の絶対契約）
+
+AIがテストを「攻略」する（テストの抜け道を突く）現象は、ImpossibleBenchでも研究対象になっている実在の問題。
+このフレームワークは4層でそれを防ぐ。
+
+### 4層の守り
+
+| 層 | 仕組み | 防げる不正 |
+|----|-------|----------|
+| **層1: 恒久ルール** | CLAUDE.md + `rules/tdd-integrity-contract.md` | 契約レベルでの合意形成 |
+| **層2: スキル** | `skills/tdd-integrity/` | RED/GREEN/REFACTORの進行誘導 |
+| **層3: hooks/settings** | `settings.json` のdeny | sed -i, snapshot一括更新等のレビュー回避 |
+| **層4: 外部検証** | `agents/reviewer.md` + mutation testing | 実装と独立視点で最終チェック |
+
+### 常に禁止される行為
+
+#### テスト不正操作
+- failing test の削除
+- `skip` / `only` / `xfail` / `todo` 化
+- assertion を弱めること（`toBe` → `toBeTruthy`、厳密比較 → 部分一致）
+- snapshot / golden file の安易な一括更新
+- coverage threshold の引き下げ
+
+#### テスト回避のための実装汚染
+- test 環境だけ通る分岐の追加（`if (process.env.NODE_ENV === 'test')`）
+- テスト入力にだけ最適化したハードコード
+- production code から test file / fixture を読むこと
+
+#### レビュー回避
+- `sed -i`, `perl -pi`, `awk -i inplace`
+- `python -c`, `node -e` によるファイル書き換え
+- Bash リダイレクトによるソースファイル上書き（`> file.ts`）
+
+### TDD Ledger（作業完了時の必須報告）
+
+作業を一区切りつける前に、以下を必ず出力する:
+
+```markdown
+## TDD Ledger
+
+### Phase
+{RED / GREEN / REFACTOR / 全サイクル完了}
+
+### Behavior implemented
+{実装した振る舞いを1文で}
+
+### Changed files
+- tests/foo.test.ts（追加: should handle X）
+- src/foo.ts（実装: handleX関数）
+
+### Test commands executed
+- `pnpm vitest run tests/foo.test.ts` → PASS (3/3)
+- `pnpm vitest run` → PASS (127/127)
+- `pnpm lint` → OK
+- `pnpm typecheck` → OK
+
+### Why this change is minimal
+{最小変更である根拠}
+
+### What would count as cheating here
+{想定される不正パターン}
+- 例: テスト期待値をハードコードで返すこと
+- 例: if (input === 'testValue') return 'expected'
+```
+
+Ledgerなしに「完了しました」と報告するのは禁止。
+
+### 最後の砦: Mutation Testing（推奨）
+
+AIがテストだけに最適化した実装を出しても、mutation testing で露呈しやすい。
+
+| 言語 | ツール |
+|-----|-------|
+| TypeScript / JavaScript | [Stryker Mutator](https://stryker-mutator.io/) |
+| Python | [mutmut](https://github.com/boxed/mutmut) |
+| Go | [go-mutesting](https://github.com/avito-tech/go-mutesting) |
+
+導入すると、「テストは全部通るのに mutation score が低い」＝テストの質が不十分、という検出ができる。
+
+### 参考実装
+
+- **[nizos/tdd-guard](https://github.com/nizos/tdd-guard)** — Claude Code向けのTDD強制プラグイン。hookで failing test なしの実装をブロック
+- **[obra/superpowers](https://github.com/obra/superpowers)** — サブエージェント活用のプランニング→実装スキルフレームワーク
 
 ---
 

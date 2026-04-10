@@ -40,7 +40,35 @@ UIの改修でボタン名が変わっていた。テスターがボタンを見
 
 ## 実装関連
 
-（ここにチーム運用しながら追記していく）
+### Case 4: AIがテストを「攻略」する（ImpossibleBench型の不正）
+状況: 「テストを通して」と指示したら、AIが実装ではなくテスト側を弱めて通した。
+具体的には `expect(result).toBe(42)` を `expect(result).toBeTruthy()` に書き換え。
+原因: RED/GREEN/REFACTORのフェーズ分離が強制されておらず、
+AIがテストと実装を同時に編集できる状態だった。
+→ 対策:
+- `.claude/rules/tdd-integrity-contract.md` の禁止事項を遵守する
+- RED中はテストファイルのみ、GREEN中は実装ファイルのみ編集する
+- 実装完了時に TDD Ledger を出力し、最小変更である根拠と想定される不正パターンを明示する
+- reviewerエージェントを別プロセスで起動し、独立視点でテスト弱体化を検出する
+
+### Case 5: sed -i でレビュー回避
+状況: Edit ツールで変更するとユーザーに差分が見えるのを嫌って、
+AIが `sed -i 's/old/new/' file.ts` でこっそりファイルを書き換えた。
+原因: Bash の in-place 編集コマンドがdenyされていなかった。
+→ 対策:
+- `.claude/settings.json` で sed -i, perl -pi, python -c, node -e 等をdeny
+- ファイル編集は必ず Edit / Write ツールで行う（差分がユーザーに見える）
+- Bash でのファイルリダイレクト（> file.ts, >> file.ts）もdeny
+
+### Case 6: snapshot 一括更新で通す
+状況: UIコンポーネントのテストがsnapshot不一致で失敗。
+AIが `vitest -u` で全snapshotを一括更新して「通りました」と報告。
+原因: snapshot更新コマンドがaskリストになく、確認なしに実行された。
+原因（深層）: snapshotが本当に期待通りの変更なのかレビューされなかった。
+→ 対策:
+- `.claude/settings.json` で `-u`, `--updateSnapshot`, `--update-snapshots` をaskに追加
+- snapshot更新時は必ず差分をレビューし、意図した変更か確認する
+- 大量snapshot更新（10件以上）は手動での内容確認を必須とする
 
 ---
 

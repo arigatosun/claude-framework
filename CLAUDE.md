@@ -32,17 +32,40 @@
 - テストデータが必要なら、テストデータ一覧にも追加する
 - テスト設計を単独でcommitする
 
-### STEP 3: 実装
-- テストが通ることをゴールにコードを書く
-- Phase単位（4-5ステップ以内）で分割して進行する
-- 各Phase完了後にテスト実行
+### STEP 3: 実装（RED → GREEN → REFACTOR 厳格分離）
+各テストケースごとに以下のループを回す:
+- **RED**: テストファイルのみ編集し、1つの failing test を追加
+- **GREEN**: 実装ファイルのみ編集し、最小変更で PASS させる
+- **REFACTOR**: 振る舞いを変えない整理のみ
+
+複数 failing test を一度にRED化してまとめてGREENにするのは禁止。
+Phase単位（4-5ステップ以内）で分割して進行する。
 
 ### STEP 4: 検証・commit
+- TDD Ledger を出力する（変更ファイル・テスト実行結果・最小変更の根拠・想定される不正パターン）
 - 全テストがPASSしてからcommitする
 - `docs/progress.md` を更新する
 
 ### 既存機能の修正・拡張時
 - STEP 2に戻る: テスト設計を先に更新してから実装
+
+## TDD Integrity Contract（絶対契約）
+
+AIがテストを「攻略」することを構造的に防ぐための絶対ルール。詳細は `.claude/rules/tdd-integrity-contract.md`。
+
+### 常に禁止
+- failing test の削除・skip化・only化・xfail化・todo化
+- assertion を弱めること（`toBe` → `toBeTruthy` への後退等）
+- snapshot / golden file の安易な一括更新（`-u` / `--updateSnapshot`）
+- coverage threshold の引き下げ
+- test 環境だけ通る分岐の追加（`if (process.env.NODE_ENV === 'test')`）
+- テスト入力にだけ最適化したハードコード（`if (input === 'testValue')`）
+- production code から test file / fixture を読むこと
+- `sed -i` / `perl -pi` / `python -c` / `node -e` 等でのファイル直接書き換え（レビュー回避）
+- Bash リダイレクトによるソースファイル書き換え（`> file.ts`, `>> file.py`）
+
+### 違反検出時
+作業を即座に停止し、ユーザーに報告する。自己判断で続行するな。
 
 ## セッション開始時の自動アクション
 
@@ -70,6 +93,7 @@
 
 以下のファイルに詳細が定義されている:
 - `.claude/rules/tdd-workflow.md` — TDDワークフローの詳細手順
+- `.claude/rules/tdd-integrity-contract.md` — TDD Integrity Contract（不正防止絶対契約）
 - `.claude/rules/design-phase.md` — 設計フェーズの質問ルール
 - `.claude/rules/session-continuity.md` — セッション継続の仕組み
 - `.claude/rules/coding-standards.md` — コーディング規約
@@ -79,5 +103,11 @@
 ## スキル
 
 - `.claude/skills/onboard-project/` — 既存プロジェクトへの自動導入（技術スタック検出・アーキテクチャ可視化・競合解消）
+- `.claude/skills/tdd-integrity/` — RED→GREEN→REFACTOR厳格分離でTDDを強制実行
 - `.claude/skills/test-design/` — テスト設計の追加・更新
 - `.claude/skills/phase-commit/` — Phase完了時のcommitと進捗更新
+
+## エージェント
+
+- `.claude/agents/reviewer.md` — 読み取り専用レビュアー（TDD不正検出含む）
+- `.claude/agents/security-check.md` — セキュリティ脆弱性スキャン
