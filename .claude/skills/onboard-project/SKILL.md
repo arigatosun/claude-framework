@@ -18,6 +18,34 @@ allowed-tools: Read, Write, Edit, Bash, Grep, Glob, Skill, Agent
 
 ---
 
+## PHASE 0: 前提条件チェック（最初に必ず実行）
+
+PHASE 1に入る前に、必要なプラグインの導入状態を確認する。
+
+### 0-1. visual-explainer プラグインの確認
+
+visual-explainerスキル（`/visual-explainer:generate-web-diagram` 等）が利用可能か確認する。
+利用できない場合、**以下のメッセージをユーザーに表示して手動インストールを依頼する**:
+
+```
+⚠ visual-explainer プラグインが未導入です。
+アーキテクチャ図の自動生成に必要なため、以下の3コマンドを順番に実行してください:
+
+  /plugin marketplace add nicobailon/visual-explainer
+  /plugin install visual-explainer
+  /reload-plugins
+
+完了したら「done」と入力してください。
+```
+
+- ユーザーが「done」と回答したら、再度利用可能か確認する
+- 利用可能になったらPHASE 1に進む
+- ユーザーが「スキップ」と回答した場合、PHASE 2（アーキテクチャ可視化）をスキップしてPHASE 1に進む。スキップ時はテキストベースのアーキテクチャ記録（`docs/architecture/overview.md`）を代わりに生成する
+
+**プラグイン未導入のままPHASE 2を実行しようとするな。必ずこのチェックを先に行う。**
+
+---
+
 ## PHASE 1: 技術スタック自動検出（コード書くな。読み取りのみ）
 
 以下のファイルを順番にスキャンして技術スタックを特定する:
@@ -116,25 +144,45 @@ allowed-tools: Read, Write, Edit, Bash, Grep, Glob, Skill, Agent
 
 ## PHASE 2: アーキテクチャ可視化
 
-ユーザーが技術スタックを確認したら、visual-explainerでアーキテクチャを可視化する。
+ユーザーが技術スタックを確認したら、アーキテクチャを可視化する。
 
-### 2-1. プロジェクト現状スナップショット
+### visual-explainerが利用可能な場合（通常フロー）
+
+#### 2-1. プロジェクト現状スナップショット
 `/visual-explainer:project-recap` を実行して、プロジェクトの全体像を把握する。
 生成されたHTMLを `docs/architecture/project-recap.html` にコピーする。
 
-### 2-2. アーキテクチャ図生成
+#### 2-2. アーキテクチャ図生成
 `/visual-explainer:generate-web-diagram` を実行して、以下のアーキテクチャ図を生成する:
 - システム全体のアーキテクチャ図（フロントエンド ↔ API ↔ DB ↔ 外部サービス）
 
 生成されたHTMLを `docs/architecture/system-architecture.html` にコピーする。
 
-### 2-3. 結果報告
+#### 2-3. 結果報告
 ```
 アーキテクチャドキュメント生成完了:
   - docs/architecture/project-recap.html（プロジェクト現状）
   - docs/architecture/system-architecture.html（システム構成図）
 
 ブラウザで確認しますか？ → Y / N
+```
+
+### PHASE 0でスキップされた場合（フォールバック）
+
+visual-explainerなしの場合、PHASE 1で検出した技術スタック情報とコードベースの読み取り結果から、テキストベースのアーキテクチャ概要を生成する。
+
+`docs/architecture/overview.md` に以下を記録:
+- システム構成（フロントエンド / API / DB / 外部サービス）
+- 主要ディレクトリとその役割
+- データフロー概要
+- 依存関係の一覧
+
+```
+アーキテクチャ概要を生成しました:
+  - docs/architecture/overview.md（テキスト版）
+
+※ visual-explainer導入後に `/visual-explainer:generate-web-diagram` で
+  HTML版に差し替え可能です。
 ```
 
 ---
@@ -256,4 +304,5 @@ git commit -m "chore: アリガトサン開発フレームワーク導入"
 - **既存ファイルの削除は絶対にしない**。追加とマージのみ
 - **ユーザー確認なしに書き込みを行わない**。各フェーズ完了時に必ず確認を取る
 - 技術スタック検出で不明な点があれば、推測せずユーザーに質問する
-- visual-explainerが利用できない環境では、PHASE 2をスキップしてテキストベースの記録に切り替える
+- PHASE 0でvisual-explainer未導入を検出したら、必ずユーザーにインストール手順を案内する。案内なしにスキップするな
+- ユーザーが明示的にスキップを選択した場合のみ、テキストベースのアーキテクチャ記録にフォールバックする
