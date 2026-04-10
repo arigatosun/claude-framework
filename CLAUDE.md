@@ -59,6 +59,13 @@
 - ユーザーの承認なしにファイルを削除すること
 - .envファイルの内容を読み取ること・出力すること
 
+## プラグイン前提条件
+
+以下のClaude Codeプラグインが導入済みであること:
+- `visual-explainer` — アーキテクチャ図・計画書・レビューのHTML生成
+  - インストール: `/plugin marketplace add nicobailon/visual-explainer && /plugin install visual-explainer && /reload-plugins`
+  - 主要コマンド: `/visual-explainer:generate-web-diagram`, `/visual-explainer:project-recap`
+
 ## 詳細ルール
 
 以下のファイルに詳細が定義されている:
@@ -68,3 +75,9 @@
 - `.claude/rules/coding-standards.md` — コーディング規約
 - `.claude/rules/git-workflow.md` — Git運用ルール
 - `.claude/rules/mistakes.md` — やらかしログ（運用しながら育てる）
+
+## スキル
+
+- `.claude/skills/onboard-project/` — 既存プロジェクトへの自動導入（技術スタック検出・アーキテクチャ可視化・競合解消）
+- `.claude/skills/test-design/` — テスト設計の追加・更新
+- `.claude/skills/phase-commit/` — Phase完了時のcommitと進捗更新
