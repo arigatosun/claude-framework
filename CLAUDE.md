@@ -89,11 +89,24 @@ AIがテストを「攻略」することを構造的に防ぐための絶対ル
   - インストール: `/plugin marketplace add nicobailon/visual-explainer && /plugin install visual-explainer && /reload-plugins`
   - 主要コマンド: `/visual-explainer:generate-web-diagram`, `/visual-explainer:project-recap`
 
+## Critical Path Protection（本番デプロイゲート）
+
+決済・認証・データ整合性など、バグが本番に出たら致命的な機能は、GitHub Actionsで機械的にマージブロックする。
+
+### 運用ルール
+- テストケースに `P0-CRITICAL` を指定すると、CI（`.github/workflows/critical-tests.yml`）が自動実行する
+- 1つでもFAILしたら mainブランチへのマージは不可（Branch Protection Rulesで強制）
+- `--no-verify` や管理者権限によるバイパスは禁止
+- flaky test は P0-CRITICAL から外すのではなく、根本原因を特定して修正する
+
+詳細は `.claude/rules/critical-path-protection.md` を参照。
+
 ## 詳細ルール
 
 以下のファイルに詳細が定義されている:
 - `.claude/rules/tdd-workflow.md` — TDDワークフローの詳細手順
 - `.claude/rules/tdd-integrity-contract.md` — TDD Integrity Contract（不正防止絶対契約）
+- `.claude/rules/critical-path-protection.md` — 本番デプロイゲートCI運用ルール
 - `.claude/rules/design-phase.md` — 設計フェーズの質問ルール
 - `.claude/rules/session-continuity.md` — セッション継続の仕組み
 - `.claude/rules/coding-standards.md` — コーディング規約

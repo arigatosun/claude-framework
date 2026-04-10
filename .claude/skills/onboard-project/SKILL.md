@@ -282,9 +282,52 @@ PHASE 1の検出結果 + PHASE 3の統合結果で CLAUDE.md を生成する。
   commitしますか？ → Y / N
 ```
 
-### 4-5. commit
+### 4-5. Critical Path Protection CI の配置
+
+本番マージゲートのCIを配置する。ユーザーに確認した上で:
+
+1. 既存の `.github/workflows/` の有無を確認
+2. 既存ワークフローがあれば内容を読み、`critical-tests.yml` / `pr-checks.yml` と重複しないか確認
+3. PHASE 1の検出結果に応じて適切なテンプレートを選択:
+   - Node.js検出 → `templates/github-workflows/critical-tests.yml` + `pr-checks.yml`
+   - Python検出 → `templates/github-workflows/critical-tests-python.yml`
+4. テンプレート内のコマンド（`pnpm`, `npm`, `yarn`等）をプロジェクトに合わせて置換
+5. `.github/workflows/critical-tests.yml` として配置
+
+配置後、ユーザーに Branch Protection Rules の設定を案内:
+
+```
+Critical Path Protection CI を配置しました:
+  - .github/workflows/critical-tests.yml
+  - .github/workflows/pr-checks.yml
+
+本番マージブロックを有効化するには、GitHub リポジトリで以下を設定してください:
+
+  1. Settings → Branches → Branch protection rules → Add rule
+  2. Branch name pattern: main
+  3. 以下を有効化:
+     ✅ Require status checks to pass before merging
+        必須チェック: critical-tests / run-critical-tests
+     ✅ Require branches to be up to date before merging
+     ✅ Do not allow bypassing the above settings
+     ⚠ Include administrators（管理者もバイパス不可）
+
+設定しますか？（gh コマンドで自動設定可能）→ Y / N / 後で手動設定
+```
+
+ユーザーが「Y」を選択した場合、`gh api` で Branch Protection を設定する:
 ```bash
-git add CLAUDE.md .claude/ docs/ .gitignore
+gh api -X PUT repos/{owner}/{repo}/branches/main/protection \
+  -H "Accept: application/vnd.github+json" \
+  -f required_status_checks='{"strict":true,"contexts":["critical-tests / run-critical-tests"]}' \
+  -f enforce_admins=true \
+  -f required_pull_request_reviews='{"required_approving_review_count":1}' \
+  -f restrictions=null
+```
+
+### 4-6. commit
+```bash
+git add CLAUDE.md .claude/ docs/ .github/ .gitignore
 git commit -m "chore: アリガトサン開発フレームワーク導入"
 ```
 
